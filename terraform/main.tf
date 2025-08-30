@@ -18,7 +18,7 @@ resource "aws_s3_bucket" "demo" {
 }
 
 # To generate a finding for practice, uncomment a "bad" setting below, commit, and re-run CI:
-# resource "aws_s3_bucket_ownership_controls" "bad_example" {
-#   bucket = aws_s3_bucket.demo.id
-#   rule { object_ownership = "ObjectWriter" } # may trigger rules depending on combos
+ resource "aws_s3_bucket_ownership_controls" "bad_example" {
+   bucket = aws_s3_bucket.demo.id
+   rule { object_ownership = "ObjectWriter" } # may trigger rules depending on combos
 # }
