@@ -12,7 +12,7 @@ def hello():
 def health():
     return {"status": "healthy", "uptime": "running"}
 
-# Version endpoint  huihui
+# Version endpoint  huihuihui
 @app.get("/version")
 def version():
     return {"app": "demo", "version": "1.0.0"}
