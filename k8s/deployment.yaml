@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demoapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: demoapp }
+  template:
+    metadata:
+      labels: { app: demoapp }
+    spec:
+      containers:
+        - name: demoapp
+          image: demoapp:ci
+          ports:
+            - containerPort: 8000
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+# To test findings, try adding risky fields (for practice only), commit, and re-run CI.
+#          securityContext:
+#            runAsUser: 0
+#            allowPrivilegeEscalation: true

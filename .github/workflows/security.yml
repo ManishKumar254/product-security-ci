@@ -1,0 +1,108 @@
+name: Product Security CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  kics-iac-misconfig:
+    name: KICS (IaC misconfig scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run KICS (Docker)
+        run: |
+          mkdir -p reports
+          docker run --rm -v "$PWD:/repo" checkmarx/kics:latest \
+            scan -p /repo -o /repo/reports --ci --report-formats sarif,html
+      - name: Upload SARIF to Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: reports/results.sarif
+      - name: Upload HTML report (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: kics-html
+          path: reports/results.html
+
+  trivy-repo-and-image:
+    name: Trivy (repo + image vuln scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy FS scan (SARIF)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: 'fs'
+          format: 'sarif'
+          output: 'trivy-fs.sarif'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload SARIF (Trivy FS)
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs.sarif
+
+      - name: Build Docker image (optional)
+        if: hashFiles('Dockerfile') != ''
+        run: docker build -t demoapp:ci .
+
+      - name: Trivy Image scan (SARIF)
+        if: hashFiles('Dockerfile') != ''
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: 'demoapp:ci'
+          format: 'sarif'
+          output: 'trivy-image.sarif'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload SARIF (Trivy Image)
+        if: hashFiles('Dockerfile') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image.sarif
+
+  snyk-deps:
+    name: Snyk (dependency / IaC) scan
+    runs-on: ubuntu-latest
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Snyk
+        uses: snyk/actions/setup@v4
+      - name: Snyk Open Source (SARIF)
+        run: |
+          snyk test --all-projects --sarif-file-output=snyk-deps.sarif || true
+      - name: Upload SARIF (Snyk Deps)
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk-deps.sarif
+      - name: Snyk IaC (SARIF)
+        run: |
+          snyk iac test . --report --sarif-file-output=snyk-iac.sarif || true
+      - name: Upload SARIF (Snyk IaC)
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk-iac.sarif
+
+  gitguardian-secrets:
+    name: GitGuardian (secrets) scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: GitGuardian scan (ggshield)
+        uses: GitGuardian/ggshield-action@v1
+        env:
+          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+        with:
+          args: secret scan repo .
