@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run KICS (Docker)
+      - name: Run KICS (Docker)  # quality gate ON (fails on HIGH)
         run: |
           mkdir -p reports
           docker run --rm -v "$PWD:/repo" checkmarx/kics:latest \
@@ -79,13 +79,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Ensure Python env so Snyk can resolve pip deps
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies (best-effort)
+      - name: Prepare virtualenv & install deps (best-effort)
         run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip setuptools wheel
           if [ -f requirements.txt ]; then pip install -r requirements.txt || true; fi
 
       - name: Setup Snyk
@@ -94,49 +98,28 @@ jobs:
       - name: Verify Snyk auth
         run: snyk auth "$SNYK_TOKEN"
 
+      # --- Open Source (dependencies) ---
       - name: Snyk Open Source (SARIF)
         run: |
+          . .venv/bin/activate || true
           if [ -f requirements.txt ]; then
-            snyk test --file=requirements.txt --package-manager=pip --sarif-file-output=snyk-deps.sarif || true
+            snyk test --file=requirements.txt --package-manager=pip --skip-unresolved --sarif-file-output=snyk-deps.sarif || true
           else
-            snyk test --all-projects --sarif-file-output=snyk-deps.sarif || true
+            snyk test --all-projects --skip-unresolved --sarif-file-output=snyk-deps.sarif || true
           fi
-          # Fallback: minimal valid SARIF so upload never fails
-          if [ ! -f snyk-deps.sarif ]; then
-            cat > snyk-deps.sarif <<'EOF'
-            {
-              "version": "2.1.0",
-              "runs": [
-                {
-                  "tool": { "driver": { "name": "Snyk" } },
-                  "results": []
-                }
-              ]
-            }
-            EOF
-          fi
+          # Fallback: write minimal valid SARIF if none was generated
+          [ -f snyk-deps.sarif ] || echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Snyk"}},"results":[]}]}'>snyk-deps.sarif
 
       - name: Upload SARIF (Snyk Deps)
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: snyk-deps.sarif
 
+      # --- IaC (Terraform/K8s) ---
       - name: Snyk IaC (SARIF)
         run: |
           snyk iac test . --sarif-file-output=snyk-iac.sarif || true
-          if [ ! -f snyk-iac.sarif ]; then
-            cat > snyk-iac.sarif <<'EOF'
-            {
-              "version": "2.1.0",
-              "runs": [
-                {
-                  "tool": { "driver": { "name": "Snyk IaC" } },
-                  "results": []
-                }
-              ]
-            }
-            EOF
-          fi
+          [ -f snyk-iac.sarif ] || echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Snyk IaC"}},"results":[]}]}'>snyk-iac.sarif
 
       - name: Upload SARIF (Snyk IaC)
         uses: github/codeql-action/upload-sarif@v3
