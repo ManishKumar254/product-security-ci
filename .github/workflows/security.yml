@@ -101,7 +101,20 @@ jobs:
           else
             snyk test --all-projects --sarif-file-output=snyk-deps.sarif || true
           fi
-          [ -f snyk-deps.sarif ] || echo '{"version":"2.1.0","runs":[]}' > snyk-deps.sarif
+          # Fallback: minimal valid SARIF so upload never fails
+          if [ ! -f snyk-deps.sarif ]; then
+            cat > snyk-deps.sarif <<'EOF'
+            {
+              "version": "2.1.0",
+              "runs": [
+                {
+                  "tool": { "driver": { "name": "Snyk" } },
+                  "results": []
+                }
+              ]
+            }
+            EOF
+          fi
 
       - name: Upload SARIF (Snyk Deps)
         uses: github/codeql-action/upload-sarif@v3
@@ -111,7 +124,19 @@ jobs:
       - name: Snyk IaC (SARIF)
         run: |
           snyk iac test . --sarif-file-output=snyk-iac.sarif || true
-          [ -f snyk-iac.sarif ] || echo '{"version":"2.1.0","runs":[]}' > snyk-iac.sarif
+          if [ ! -f snyk-iac.sarif ]; then
+            cat > snyk-iac.sarif <<'EOF'
+            {
+              "version": "2.1.0",
+              "runs": [
+                {
+                  "tool": { "driver": { "name": "Snyk IaC" } },
+                  "results": []
+                }
+              ]
+            }
+            EOF
+          fi
 
       - name: Upload SARIF (Snyk IaC)
         uses: github/codeql-action/upload-sarif@v3
