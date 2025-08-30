@@ -71,35 +71,35 @@ jobs:
         with:
           sarif_file: trivy-image.sarif
 
-snyk-deps:
-  name: Snyk (dependency / IaC) scan
-  runs-on: ubuntu-latest
-  env:
-    SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-  steps:
-    - uses: actions/checkout@v4
+  snyk-deps:
+    name: Snyk (dependency / IaC) scan
+    runs-on: ubuntu-latest
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Setup Snyk
-      uses: snyk/actions/setup@v4.0.0   # pinned version
+      - name: Setup Snyk
+        uses: snyk/actions/setup@v4.0.0
 
-    - name: Verify Snyk auth
-      run: snyk auth "$SNYK_TOKEN"
+      - name: Verify Snyk auth
+        run: snyk auth "$SNYK_TOKEN"
 
-    - name: Snyk Open Source (SARIF)
-      run: snyk test --all-projects --sarif-file-output=snyk-deps.sarif || true
+      - name: Snyk Open Source (SARIF)
+        run: snyk test --all-projects --sarif-file-output=snyk-deps.sarif || true
 
-    - name: Upload SARIF (Snyk Deps)
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: snyk-deps.sarif
+      - name: Upload SARIF (Snyk Deps)
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk-deps.sarif
 
-    - name: Snyk IaC (SARIF)
-      run: snyk iac test . --sarif-file-output=snyk-iac.sarif || true
+      - name: Snyk IaC (SARIF)
+        run: snyk iac test . --sarif-file-output=snyk-iac.sarif || true
 
-    - name: Upload SARIF (Snyk IaC)
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: snyk-iac.sarif
+      - name: Upload SARIF (Snyk IaC)
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk-iac.sarif
 
   gitguardian-secrets:
     name: GitGuardian (secrets) scan
