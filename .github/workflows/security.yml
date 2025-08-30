@@ -21,11 +21,17 @@ jobs:
           mkdir -p reports
           docker run --rm -v "$PWD:/repo" checkmarx/kics:latest \
             scan -p /repo -o /repo/reports --ci --report-formats sarif,html
+      # Ensure we can fetch reports even if the scan fails
+      - name: List report files (debug)
+        if: always()
+        run: ls -lah reports || true
       - name: Upload SARIF to Code Scanning
+        if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: reports/results.sarif
       - name: Upload HTML report (artifact)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: kics-html
