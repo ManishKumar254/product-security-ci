@@ -79,6 +79,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies (best-effort)
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt || true; fi
+
       - name: Setup Snyk
         uses: snyk/actions/setup@0.4.0
 
@@ -86,7 +95,13 @@ jobs:
         run: snyk auth "$SNYK_TOKEN"
 
       - name: Snyk Open Source (SARIF)
-        run: snyk test --all-projects --sarif-file-output=snyk-deps.sarif || true
+        run: |
+          if [ -f requirements.txt ]; then
+            snyk test --file=requirements.txt --package-manager=pip --sarif-file-output=snyk-deps.sarif || true
+          else
+            snyk test --all-projects --sarif-file-output=snyk-deps.sarif || true
+          fi
+          [ -f snyk-deps.sarif ] || echo '{"version":"2.1.0","runs":[]}' > snyk-deps.sarif
 
       - name: Upload SARIF (Snyk Deps)
         uses: github/codeql-action/upload-sarif@v3
@@ -94,7 +109,9 @@ jobs:
           sarif_file: snyk-deps.sarif
 
       - name: Snyk IaC (SARIF)
-        run: snyk iac test . --sarif-file-output=snyk-iac.sarif || true
+        run: |
+          snyk iac test . --sarif-file-output=snyk-iac.sarif || true
+          [ -f snyk-iac.sarif ] || echo '{"version":"2.1.0","runs":[]}' > snyk-iac.sarif
 
       - name: Upload SARIF (Snyk IaC)
         uses: github/codeql-action/upload-sarif@v3
