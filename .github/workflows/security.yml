@@ -107,7 +107,7 @@ jobs:
           else
             snyk test --all-projects --skip-unresolved --sarif-file-output=snyk-deps.sarif || true
           fi
-          # Fallback: minimal valid SARIF so upload never fails
+          # Fallback: write minimal valid SARIF if none was generated
           [ -f snyk-deps.sarif ] || echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Snyk"}},"results":[]}]}'>snyk-deps.sarif
 
       - name: Upload SARIF (Snyk Deps)
@@ -127,13 +127,14 @@ jobs:
           sarif_file: snyk-iac.sarif
 
   gitguardian-secrets:
-    name: GitGuardian (secrets) scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: GitGuardian scan (ggshield)
-        uses: GitGuardian/ggshield-action@v1
-        env:
-          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
-        with:
-          args: scan repo .
+  name: GitGuardian (secrets) scan
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - name: GitGuardian scan (ggshield)
+      uses: GitGuardian/ggshield-action@v1
+      env:
+        GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+      with:
+        args: secret scan repo .
+
